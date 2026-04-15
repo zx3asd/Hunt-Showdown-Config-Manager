@@ -15,7 +15,7 @@ A tool for advanced Hunt: Showdown configuration that allows you to modify setti
 
 -----
 
-## Russian / Русская версия
+## Russian 
 
 Программа для тонкой настройки конфигурации Hunt: Showdown, которая позволяет изменять параметры, недоступные через стандартное игровое меню.
 
