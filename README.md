@@ -1,10 +1,6 @@
 # Hunt-Showdown-Config-Manager
 Advanced configuration tool for Hunt: Showdown: dual binds, custom FPS lock, HUD scaling, and profile management.
 
-[English version](https://www.google.com/search?q=%23english) | [Русская версия](https://www.google.com/search?q=%23russian)
-
-\<a name="english"\>\</a\>
-
 ## English
 
 A tool for advanced Hunt: Showdown configuration that allows you to modify settings not available through the standard in-game menu.
@@ -18,8 +14,6 @@ A tool for advanced Hunt: Showdown configuration that allows you to modify setti
   * **Profile System:** Create multiple configuration profiles and swap between them instantly.
 
 -----
-
-\<a name="russian"\>\</a\>
 
 ## Russian / Русская версия
 
