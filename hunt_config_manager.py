@@ -5,6 +5,37 @@ import os
 import sys
 import json
 import ctypes
+import math
+
+class ToolTip:
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tip_window = None
+
+    def show_tip(self):
+        if self.tip_window or not self.text: return
+        x, y, _cx, cy = self.widget.bbox("insert")
+        x = self.widget.winfo_rootx() + 25
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 5
+        self.tip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(1)
+        tw.wm_geometry(f"+{x}+{y}")
+        label = tk.Label(tw, text=self.text, justify="left",
+                         background="#1c2128", foreground="#c9d1d9",
+                         relief="solid", borderwidth=1,
+                         font=("Segoe UI", 9), padx=10, pady=5, wraplength=400)
+        label.pack()
+
+    def hide_tip(self):
+        if self.tip_window:
+            self.tip_window.destroy()
+            self.tip_window = None
+
+def create_tooltip(widget, text):
+    tooltip = ToolTip(widget, text)
+    widget.bind("<Enter>", lambda e: tooltip.show_tip())
+    widget.bind("<Leave>", lambda e: tooltip.hide_tip())
 
 def resource_path(relative_path):
     try:
@@ -35,6 +66,7 @@ LANG = {
         "msg_error_bind": "Действие '{action}' не назначено!\nИгра требует хотя бы один бинд.",
         "frame_presets": " Профили настроек ",
         "btn_preset_save": "Сохранить",
+        "btn_preset_apply": "Применить",
         "btn_preset_new": "Создать...",
         "btn_preset_del": "Удалить",
         "prompt_new_preset": "Введите имя нового профиля:",
@@ -107,7 +139,30 @@ LANG = {
         "btn_cancel": "Отмена",
         "title_error": "Ошибка",
         "title_warning": "Внимание",
-        "title_info": "Информация"
+        "title_info": "Информация",
+        "calc_tab": " Калькулятор 1:1 ",
+        "calc_import_frame": " Импорт из других игр ",
+        "calc_game_label": "Игра:",
+        "calc_sens_label": "Чувствительность:",
+        "calc_params_frame": " Параметры Hunt: Showdown ",
+        "calc_base_sens_label": "Базовая чувствительность (Default):",
+        "calc_fov_label": "Угол обзора:",
+        "btn_calculate": "Рассчитать и перенести в настройки",
+        "calc_notice": "* Значения будут рассчитаны и перенесены во вкладку 'Настройка чувствительности'",
+        "sys_fov_frame": " Угол обзора ",
+        "sys_menu_label": "В Игровом меню (79.32 - 112.33):",
+        "sys_config_label": "В файле attributes.xml (50 - 80):",
+        "sys_other_frame": " Прочие параметры ",
+        "calc_fov_mode": "Тип ввода угла обзора:",
+        "calc_mode_hfov": "Из игры ",
+        "calc_mode_vfov": "Из файла attributes.xml",
+        "opt_default": "По умолчанию",
+        "opt_zoom": "Приближение",
+        "calc_lowered_label": "Поле зрения в опущенном состоянии:",
+        "calc_shoulder_label": "Поле зрения прицеливания от плеча:",
+        "calc_mdc_tooltip": "Чувствительность при разных FOV никогда не может быть абсолютно одинаковой: MDC позволяет выбрать конкретную точку на экране, где движение мыши будет совпадать. Обычно выбирают от 0% (центр) до 100% (край экрана), но технически можно ставить значения выше или даже отрицательные.",
+        "calc_mdc_label": "Коэф. дистанции монитора (MDC %):",
+        "sys_fov_tooltip": "Игра скрыто преобразует заданный вами горизонтальный угол обзора (FOV) в вертикальный FOV, адаптированный под соотношение сторон 16:9. Например, горизонтальный FOV 85° соответствует вертикальному FOV ~55°.\n\nВсе внутренние расчеты Hunt: Showdown опираются именно на этот вертикальный FOV.\n\nВы можете вручную задать вертикальный FOV, изменив параметр FieldOfView в файле attributes.xml (доступны значения от 50 до 80). В этой программе отображаются ваши актуальные значения, и вы можете изменять их прямо здесь.\n\nЕсли вы меняете FOV через файл, редактируйте именно это значение, а не горизонтальный FOV.\n\nРучная настройка позволяет расширить границы горизонтального FOV до 79°–112° (вместо стандартных 85°–110° в меню игры).\n\nИгровые настройки могут вводить в заблуждение: горизонтальный FOV, который вы выбираете в меню, не всегда совпадает с реальным углом обзора в игре.\n\nОбратите внимание: игра всегда округляет значение в файле attributes.xml при запуске, если для файла не установлен атрибут «Только чтение».",
     },
     "EN": {
         "title": "Hunt: Showdown Config Manager",
@@ -130,6 +185,7 @@ LANG = {
         "msg_error_bind": "Action '{action}' is unassigned!\nThe game requires at least one key.",
         "frame_presets": " Configuration Profiles ",
         "btn_preset_save": "Save",
+        "btn_preset_apply": "Apply",
         "btn_preset_new": "New...",
         "btn_preset_del": "Delete",
         "prompt_new_preset": "Enter name for new profile:",
@@ -202,7 +258,30 @@ LANG = {
         "btn_cancel": "Cancel",
         "title_error": "Error",
         "title_warning": "Warning",
-        "title_info": "Information"
+        "title_info": "Information",
+        "calc_tab": " 1:1 Calculator ",
+        "calc_import_frame": " Import from other games ",
+        "calc_game_label": "Game:",
+        "calc_sens_label": "Sensitivity:",
+        "calc_params_frame": " Hunt: Showdown Parameters ",
+        "calc_base_sens_label": "Base Sensitivity (Default):",
+        "calc_fov_label": "Field of View:",
+        "btn_calculate": "Calculate and transfer to settings",
+        "calc_notice": "* Values will be calculated and transferred to the 'Sensitivity' tab",
+        "sys_fov_frame": " Field Of View ",
+        "sys_menu_label": "In-game menu (79.32 - 112.33):",
+        "sys_config_label": "File attributes.xml (50 - 80):",
+        "sys_other_frame": " Other parameters ",
+        "calc_fov_mode": "FOV Input Type:",
+        "calc_mode_hfov": "From game menu",
+        "calc_mode_vfov": "From file attributes.xml",
+        "opt_default": "Default",
+        "opt_zoom": "Zoom",
+        "calc_lowered_label": "Lowered State FOV:",
+        "calc_shoulder_label": "Shoulder Aim FOV:",
+        "calc_mdc_tooltip": "Sensitivities across different FOVs can never truly be equal: the Monitor Distance Coefficient allows to choose the specific point on the screen where mouse movement will match across FOVs. Generally you'll want to pick a value between 0% (center of the screen) and 100% (edge of the screen) but you can technically pick higher values or even negative values.",
+        "calc_mdc_label": "Monitor Distance Coeff (MDC %):",
+        "sys_fov_tooltip": "The game implicitly converts your configured horizontal FOV into a vertical FOV adapted for a 16:9 aspect ratio. For example, a horizontal FOV of 85° corresponds to a vertical FOV of ~55°.\n\nHunt: Showdown bases all its internal calculations on this vertical FOV.\n\nYou can manually set the vertical FOV by changing the FieldOfView parameter in the attributes.xml file (values from 50 to 80 are allowed). This program displays your actual values, and you can modify them directly here.\n\nIf you modify the FOV through the file, edit this value, not the horizontal FOV.\n\nManual configuration extends the horizontal FOV limits to 79°–112° (instead of the standard 85°–110° in the game menu).\n\nIn-game settings can be misleading: the horizontal FOV you select in the menu does not always match the actual field of view rendered in-game.\n\nPlease note: the game will always round the value in the attributes.xml file upon launch unless the file is set to \"Read-only\".",
     }
 }
 
@@ -367,10 +446,6 @@ class SensEditorApp:
         self.root.option_add('*Listbox.foreground', self.fg_main)
         self.root.option_add('*Listbox.selectBackground', self.bg_listen)
         self.root.option_add('*Listbox.selectForeground', '#ffffff')
-        self.root.option_add('*TCombobox*Listbox.background', self.bg_entry)
-        self.root.option_add('*TCombobox*Listbox.foreground', self.fg_main)
-        self.root.option_add('*TCombobox*Listbox.selectBackground', self.bg_listen)
-        self.root.option_add('*TCombobox*Listbox.selectForeground', '#ffffff')
         
         self.style.configure(".", font=self.font_main, background=self.bg_main, foreground=self.fg_main)
         self.style.configure("TEntry", fieldbackground=self.bg_entry, foreground=self.fg_main, bordercolor=self.bg_btn, insertcolor=self.fg_main)
@@ -407,7 +482,67 @@ class SensEditorApp:
         self.current_content = ""
         self.is_listening = False
         
+        self.HIDDEN_FACTORS = {
+            "MouseSensitivity": 1.000000,
+            "HipMouseSensitivity": 1.111111,
+            "IronSightsMouseSensitivity": 1.851851,
+            "ShortScopeMouseSensitivity": 2.020202,
+            "MediumScopeMouseSensitivity": 5.555556,
+            "LongScopeMouseSensitivity": 3.703704,
+            "PeepholeMouseSensitivity": 5.555556
+        }
+
         self.load_app_settings()
+
+        self.calc_base_sens = tk.StringVar()
+        self.calc_fov = tk.StringVar()
+        self.calc_mdc = tk.StringVar()
+        
+        self.calc_fov_mode = tk.StringVar(value=self.tr("calc_mode_hfov"))
+        self.calc_fov_mode.trace_add("write", self.recalculate_sens)
+        
+        self.games_file = os.path.join(self.config_dir, "games_sens.json")
+
+        self.sys_fov_ingame = tk.StringVar()
+        self.sys_fov_config = tk.StringVar()
+        self._fov_updating = False 
+        
+        self.sys_fov_ingame.trace_add("write", self._on_ingame_fov_change)
+        self.sys_fov_config.trace_add("write", self._on_config_fov_change)
+        
+        self.games_data = {
+            "CS2 / Apex Legends": 0.5119635,
+            "Valorant": 1.6289741215,
+            "Overwatch 2 / Call of Duty": 0.153589498,
+            "Rainbow Six Siege (Default)": 0.104719
+        }
+        
+        if os.path.exists(self.games_file):
+            try:
+                with open(self.games_file, 'r', encoding='utf-8') as f:
+                    self.games_data = json.load(f)
+            except: pass
+        else:
+            try:
+                with open(self.games_file, 'w', encoding='utf-8') as f:
+                    json.dump(self.games_data, f, indent=4, ensure_ascii=False)
+            except: pass
+
+        self.conv_game = tk.StringVar(value=list(self.games_data.keys())[0])
+        self.conv_sens = tk.StringVar()
+
+        self.conv_game.trace_add("write", self.convert_external_sens)
+        self.conv_sens.trace_add("write", self.convert_external_sens)
+
+        self.calc_lowered_fov = tk.StringVar(value=self.tr("opt_default"))
+        self.calc_shoulder_fov = tk.StringVar(value=self.tr("opt_default"))
+
+        self.calc_base_sens.trace_add("write", self.recalculate_sens)
+        self.calc_fov.trace_add("write", self.recalculate_sens)
+        self.calc_mdc.trace_add("write", self.recalculate_sens)
+        self.calc_lowered_fov.trace_add("write", self.recalculate_sens)
+        self.calc_shoulder_fov.trace_add("write", self.recalculate_sens)
+        
         self.create_widgets()
         self.refresh_presets()
         
@@ -416,6 +551,115 @@ class SensEditorApp:
 
         self._apply_dark_title_bar()
         self.root.deiconify()
+
+    def recalculate_sens(self, *args):
+        try:
+            base_sens_str = self.calc_base_sens.get().replace(',', '.').strip()
+            fov_str = self.calc_fov.get().replace(',', '.').strip()
+            mdc_str = self.calc_mdc.get().replace('%', '').replace(',', '.').strip()
+            
+            if not base_sens_str or not fov_str or not mdc_str: return
+                
+            base_sens = float(base_sens_str)
+            fov_val = float(fov_str)
+            mdc = float(mdc_str) / 100.0  
+            
+            if self.calc_fov_mode.get() == self.tr("calc_mode_hfov"):
+                base_vfov = math.degrees(2 * math.atan(math.tan(math.radians(fov_val) / 2) / (16.0 / 9.0)))
+            else:
+                base_vfov = fov_val
+            
+            lowered_vfov = base_vfov if self.calc_lowered_fov.get() == self.tr("opt_default") else base_vfov / 1.25
+            shoulder_vfov = base_vfov if self.calc_shoulder_fov.get() == self.tr("opt_default") else base_vfov / 1.25
+            
+            scope_vfovs = {
+                "MouseSensitivity": lowered_vfov,
+                "HipMouseSensitivity": shoulder_vfov,
+                "IronSightsMouseSensitivity": base_vfov * 0.48,
+                "ShortScopeMouseSensitivity": math.degrees(2 * math.atan(math.tan(math.radians(55) / 2) / 3.0)),
+                "MediumScopeMouseSensitivity": math.degrees(2 * math.atan(math.tan(math.radians(55) / 2) / 8.0)),
+                "LongScopeMouseSensitivity": math.degrees(2 * math.atan(math.tan(math.radians(55) / 2) / 12.0)),
+                "PeepholeMouseSensitivity": math.degrees(2 * math.atan(math.tan(math.radians(55) / 2) / 9.0))
+            }
+            
+            for key in self.sens_keys:
+                hidden_factor = self.HIDDEN_FACTORS.get(key, 1.0)
+                target_vfov = scope_vfovs[key]
+                
+                if mdc == 0.0:
+                    ratio = math.tan(math.radians(target_vfov) / 2) / math.tan(math.radians(base_vfov) / 2)
+                else:
+                    ratio = math.atan(mdc * math.tan(math.radians(target_vfov) / 2)) / math.atan(mdc * math.tan(math.radians(base_vfov) / 2))
+                    
+                final_val = base_sens * hidden_factor * ratio
+                
+                if key in self.sens_entries:
+                    self.sens_entries[key].delete(0, tk.END)
+                    self.sens_entries[key].insert(0, f"{final_val:.6f}")
+                    
+        except ValueError:
+            pass
+            
+    def convert_external_sens(self, *args):
+        try:
+            game = self.conv_game.get()
+            sens_str = self.conv_sens.get().replace(',', '.').strip()
+            
+            if not sens_str or game not in self.games_data:
+                return
+                
+            ext_sens = float(sens_str)
+            multiplier = self.games_data[game]
+            
+            hunt_base_sens = ext_sens * multiplier
+            
+            self.calc_base_sens.set(f"{hunt_base_sens:.6f}".rstrip('0').rstrip('.'))
+            
+        except ValueError:
+            pass
+            
+    def _on_ingame_fov_change(self, *args):
+        if self._fov_updating: return 
+        try:
+            val_str = self.sys_fov_ingame.get().replace(',', '.').strip()
+            if not val_str: return
+            fov_in = float(val_str)
+            
+            if fov_in > 112.33:
+                fov_in = 112.33
+                self._fov_updating = True
+                self.sys_fov_ingame.set("112.33")
+                self._fov_updating = False
+            
+            vfov = math.degrees(2 * math.atan(math.tan(math.radians(fov_in) / 2) / (16.0 / 9.0)))
+            
+            self._fov_updating = True
+            self.sys_fov_config.set(f"{vfov:.6f}".rstrip('0').rstrip('.'))
+            self._fov_updating = False
+        except ValueError:
+            pass
+
+    def _on_config_fov_change(self, *args):
+        if self._fov_updating: return
+        try:
+            val_str = self.sys_fov_config.get().replace(',', '.').strip()
+            if not val_str: return
+            vfov = float(val_str)
+            
+            if vfov > 80.0:
+                vfov = 80.0
+                self._fov_updating = True
+                self.sys_fov_config.set("80")
+                self._fov_updating = False
+            
+            hfov = math.degrees(2 * math.atan(math.tan(math.radians(vfov) / 2) * (16.0 / 9.0)))
+            
+            self._fov_updating = True
+            hfov_clean = f"{hfov:.2f}".rstrip('0').rstrip('.')
+            self.sys_fov_ingame.set(hfov_clean)
+            self._fov_updating = False
+        except ValueError:
+            pass
 
     def _apply_dark_title_bar(self, window=None):
         if window is None: window = self.root
@@ -559,18 +803,23 @@ class SensEditorApp:
         except: pass
 
     def refresh_presets(self):
+        if not os.path.exists(self.config_dir):
+            os.makedirs(self.config_dir)
+            
         presets = []
-        for f in os.listdir(self.config_dir):
-            if f.endswith(".json") and f != "app_settings.json":
-                presets.append(f[:-5])
+        excluded_files = ["games_sens.json", "app_settings.json"]
         
-        self.preset_cb['values'] = presets
-        if self.preset_var.get() not in presets and presets:
-            self.preset_var.set(presets[0] if presets else "")
-
+        for filename in os.listdir(self.config_dir):
+            if filename in excluded_files:
+                continue
+                
+            if filename.endswith(".json"):
+                presets.append(filename[:-5])
+        
+        self.preset_cb["values"] = presets
+            
     def on_preset_selected(self, event=None):
         self.save_app_settings()
-        self.action_load_preset()
 
     def new_preset(self):
         name = self.custom_ask_string(self.tr("btn_preset_new"), self.tr("prompt_new_preset"))
@@ -652,14 +901,33 @@ class SensEditorApp:
                     self.bind_buttons[raw_action]["btn1"].config(text=self.get_key_name(v1))
                     self.bind_buttons[raw_action]["btn2"].config(text=self.get_key_name(v2))
             
+            self.save_status_label.config(text="✔")
+            self.root.after(3000, lambda: self.save_status_label.config(text=""))
+            
         except Exception as e:
             self.custom_msg_box("title_error", str(e), True)
 
     def on_lang_change(self, event=None):
+        mode_val = self.calc_fov_mode.get()
+        lowered_val = self.calc_lowered_fov.get()
+        shoulder_val = self.calc_shoulder_fov.get()
+
+        is_hfov = mode_val in [LANG["RU"]["calc_mode_hfov"], LANG["EN"]["calc_mode_hfov"]]
+        is_lowered_def = lowered_val in [LANG["RU"]["opt_default"], LANG["EN"]["opt_default"]]
+        is_shoulder_def = shoulder_val in [LANG["RU"]["opt_default"], LANG["EN"]["opt_default"]]
+
         self.save_app_settings()
-        for widget in self.root.winfo_children(): widget.destroy()
+        new_l = self.current_lang.get()
+
+        self.calc_fov_mode.set(LANG[new_l]["calc_mode_hfov"] if is_hfov else LANG[new_l]["calc_mode_vfov"])
+        self.calc_lowered_fov.set(LANG[new_l]["opt_default"] if is_lowered_def else LANG[new_l]["opt_zoom"])
+        self.calc_shoulder_fov.set(LANG[new_l]["opt_default"] if is_shoulder_def else LANG[new_l]["opt_zoom"])
+
+        for widget in self.root.winfo_children(): 
+            widget.destroy()
         self.create_widgets()
         self.refresh_presets()
+        
         if self.file_path.get() and os.path.exists(self.file_path.get()):
             self.load_values()
 
@@ -685,15 +953,16 @@ class SensEditorApp:
         preset_frame.pack(fill="x", padx=15, pady=(0, 10))
         
         self.preset_cb = ttk.Combobox(preset_frame, textvariable=self.preset_var, state="readonly", width=25)
-        self.preset_cb.pack(side="left", padx=(0, 15))
+        self.preset_cb.pack(side="left", padx=(0, 10))
         self.preset_cb.bind("<<ComboboxSelected>>", self.on_preset_selected)
         
+        ttk.Button(preset_frame, text=self.tr("btn_preset_save"), command=self.action_save_preset).pack(side="left", padx=(0, 10))
+        ttk.Button(preset_frame, text=self.tr("btn_preset_apply"), command=self.action_load_preset).pack(side="left", padx=(0, 10))
         ttk.Button(preset_frame, text=self.tr("btn_preset_new"), command=self.new_preset).pack(side="left", padx=(0, 10))
         ttk.Button(preset_frame, text=self.tr("btn_preset_del"), command=self.action_delete_preset).pack(side="left", padx=(0, 10))
-        ttk.Button(preset_frame, text=self.tr("btn_preset_save"), command=self.action_save_preset).pack(side="left")
         
         self.save_status_label = tk.Label(preset_frame, text="", bg=self.bg_main, fg=self.success_text, font=("Segoe UI", 12, "bold"))
-        self.save_status_label.pack(side="left", padx=(10, 0))
+        self.save_status_label.pack(side="left", padx=(15, 0))
 
         notebook = ttk.Notebook(self.root)
         notebook.pack(fill="both", expand=True, padx=15, pady=5)
@@ -709,13 +978,48 @@ class SensEditorApp:
 
         tab_sys = ttk.Frame(notebook, padding=20)
         notebook.add(tab_sys, text=self.tr("tab_sys"))
-        for i, key in enumerate(self.system_keys):
-            ttk.Label(tab_sys, text=self.tr(key) + ":").grid(row=i, column=0, sticky="w", pady=12)
-            entry = ttk.Entry(tab_sys, width=22)
-            entry.grid(row=i, column=1, sticky="e", pady=12, padx=15)
-            self.system_entries[key] = entry
-            tab_sys.columnconfigure(1, weight=1)
+        tab_sys.columnconfigure(0, weight=1) 
+        
+        frame_fov = ttk.LabelFrame(tab_sys, padding=(15, 10))
+        
+        lbl_fov_title = ttk.Label(tab_sys, text=self.tr("sys_fov_frame"), cursor="question_arrow", style="TLabelframe.Label")
+        
+        frame_fov.configure(labelwidget=lbl_fov_title)
+        frame_fov.grid(row=0, column=0, sticky="ew", pady=(0, 15))
+        
+        corner_fov = tk.Canvas(lbl_fov_title, width=6, height=6, bg=self.bg_main, highlightthickness=0)
+        corner_fov.place(relx=1.0, rely=0.0, x=-2, y=2, anchor="ne")
+        corner_fov.create_polygon(0, 0, 6, 0, 6, 6, fill="#ffffff")
+        
+        create_tooltip(lbl_fov_title, self.tr("sys_fov_tooltip"))
 
+        frame_fov.columnconfigure(0, minsize=260)
+        frame_fov.columnconfigure(1, weight=1)
+        
+        ttk.Label(frame_fov, text=self.tr("sys_menu_label")).grid(row=0, column=0, sticky="w", pady=5)
+        entry_ingame = ttk.Entry(frame_fov, textvariable=self.sys_fov_ingame)
+        entry_ingame.grid(row=0, column=1, sticky="ew", pady=5)
+        
+        ttk.Label(frame_fov, text=self.tr("sys_config_label")).grid(row=1, column=0, sticky="w", pady=5)
+        entry_config = ttk.Entry(frame_fov, textvariable=self.sys_fov_config)
+        entry_config.grid(row=1, column=1, sticky="ew", pady=5)
+        
+        self.system_entries["FieldOfView"] = entry_config       
+        
+        frame_sys_other = ttk.LabelFrame(tab_sys, text=self.tr("sys_other_frame"), padding=(15, 10))
+        frame_sys_other.grid(row=1, column=0, sticky="ew")
+        
+        frame_sys_other.columnconfigure(0, minsize=260)
+        frame_sys_other.columnconfigure(1, weight=1)
+        
+        for i, key in enumerate(["MaxFPS", "OverscanScaling"]):
+            ttk.Label(frame_sys_other, text=self.tr(key) + ":").grid(row=i, column=0, sticky="w", pady=5)
+            entry = ttk.Entry(frame_sys_other)
+            entry.grid(row=i, column=1, sticky="ew", pady=5)
+            self.system_entries[key] = entry
+            
+        tab_sys.columnconfigure(1, weight=1)
+            
         tab_binds_container = ttk.Frame(notebook)
         notebook.add(tab_binds_container, text=self.tr("tab_binds"))
         
@@ -740,7 +1044,76 @@ class SensEditorApp:
         
         tk.Label(self.tab_binds, text=self.tr("hint"), font=("Segoe UI", 9), bg=self.bg_main, fg="#8b949e").grid(row=0, column=0, columnspan=3, pady=(0, 5), sticky="w")
         tk.Label(self.tab_binds, text=self.tr("warning_binds"), font=("Segoe UI", 9, "italic"), bg=self.bg_main, fg=self.warning_text).grid(row=1, column=0, columnspan=3, pady=(0, 15), sticky="w")
+        
+        tab_calc = ttk.Frame(notebook, padding=20)
+        notebook.add(tab_calc, text=self.tr("calc_tab"))
+        tab_calc.columnconfigure(0, weight=1)
+        
+        frame_conv = ttk.LabelFrame(tab_calc, text=self.tr("calc_import_frame"), padding=(15, 10))
+        frame_conv.grid(row=0, column=0, sticky="ew", pady=(0, 15))
+        
+        frame_conv.columnconfigure(0, minsize=260)
+        frame_conv.columnconfigure(1, weight=1)
+        frame_conv.columnconfigure(2, minsize=220)
+        
+        ttk.Label(frame_conv, text=self.tr("calc_game_label")).grid(row=0, column=0, sticky="w", pady=5)
+        ttk.Combobox(frame_conv, textvariable=self.conv_game, values=list(self.games_data.keys()), state="readonly").grid(row=0, column=2, sticky="ew", pady=5)
+        
+        ttk.Label(frame_conv, text=self.tr("calc_sens_label")).grid(row=1, column=0, sticky="w", pady=5)
+        ttk.Entry(frame_conv, textvariable=self.conv_sens).grid(row=1, column=2, sticky="ew", pady=5)
 
+        frame_calc = ttk.LabelFrame(tab_calc, text=self.tr("calc_params_frame"), padding=(15, 10))
+        frame_calc.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+        
+        frame_calc.columnconfigure(0, minsize=260)
+        frame_calc.columnconfigure(1, weight=1)
+        frame_calc.columnconfigure(2, minsize=220)
+        
+        ttk.Label(frame_calc, text=self.tr("calc_base_sens_label")).grid(row=0, column=0, sticky="w", pady=8)
+        ttk.Entry(frame_calc, textvariable=self.calc_base_sens).grid(row=0, column=2, sticky="ew", pady=8)
+        
+        ttk.Label(frame_calc, text=self.tr("calc_fov_mode")).grid(row=1, column=0, sticky="w", pady=8)
+        fov_mode_cb = ttk.Combobox(frame_calc, textvariable=self.calc_fov_mode, 
+                                   values=[self.tr("calc_mode_hfov"), self.tr("calc_mode_vfov")], 
+                                   state="readonly")
+        fov_mode_cb.grid(row=1, column=2, sticky="ew", pady=8)
+        
+        ttk.Label(frame_calc, text=self.tr("calc_fov_label")).grid(row=2, column=0, sticky="w", pady=8)
+        ttk.Entry(frame_calc, textvariable=self.calc_fov).grid(row=2, column=2, sticky="ew", pady=8)
+        
+        ttk.Label(frame_calc, text=self.tr("calc_lowered_label")).grid(row=3, column=0, sticky="w", pady=8)
+        ttk.Combobox(frame_calc, textvariable=self.calc_lowered_fov, 
+                     values=[self.tr("opt_default"), self.tr("opt_zoom")], 
+                     state="readonly").grid(row=3, column=2, sticky="ew", pady=8)
+        
+        ttk.Label(frame_calc, text=self.tr("calc_shoulder_label")).grid(row=4, column=0, sticky="w", pady=8)
+        ttk.Combobox(frame_calc, textvariable=self.calc_shoulder_fov, 
+                     values=[self.tr("opt_default"), self.tr("opt_zoom")], 
+                     state="readonly").grid(row=4, column=2, sticky="ew", pady=8)
+        
+        mdc_label = ttk.Label(frame_calc, text=self.tr("calc_mdc_label"), cursor="question_arrow")
+        mdc_label.grid(row=5, column=0, sticky="w", pady=8)
+        
+        corner = tk.Canvas(mdc_label, width=6, height=6, bg=self.bg_main, highlightthickness=0)
+        corner.place(relx=1.0, rely=0.0, x=-2, y=2, anchor="ne")
+        
+        corner.create_polygon(0, 0, 6, 0, 6, 6, fill=self.accent_text)
+        
+        mdc_entry = ttk.Entry(frame_calc, textvariable=self.calc_mdc)
+        mdc_entry.grid(row=5, column=2, sticky="ew", pady=8)
+
+        create_tooltip(mdc_label, self.tr("calc_mdc_tooltip"))
+        create_tooltip(mdc_entry, self.tr("calc_mdc_tooltip"))
+        
+        btn_apply = tk.Button(tab_calc, text=self.tr("btn_calculate"), font=("Segoe UI", 10, "bold"), 
+                              bg=self.bg_listen, fg="#ffffff", activebackground=self.accent_text, activeforeground="#ffffff",
+                              relief="flat", cursor="hand2", pady=8)
+        btn_apply.grid(row=2, column=0, sticky="ew", pady=(10, 5))
+        btn_apply.config(command=self.recalculate_sens)
+        
+        ttk.Label(tab_calc, text=self.tr("calc_notice"), 
+                  foreground=self.accent_text, font=("Segoe UI", 9, "italic")).grid(row=3, column=0, pady=(5, 0), sticky="w")
+        
         frame_bottom = ttk.Frame(self.root, padding=(15, 15))
         frame_bottom.pack(fill="x")
         ttk.Button(frame_bottom, text=self.tr("btn_load"), command=self.load_values).pack(side="left")
